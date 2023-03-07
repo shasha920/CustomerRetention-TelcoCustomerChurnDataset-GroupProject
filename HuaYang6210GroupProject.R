@@ -132,3 +132,43 @@ ggplot(telco.df)+
 #boxplot Dependents  vs MonthlyCharges
 ggplot(telco.df)+
   geom_boxplot(aes(x=as.factor(Dependents),y=MonthlyCharges))+xlab("Dependents")
+
+#boxplot DeviceProtection vs tenure
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(DeviceProtection),y=tenure))+xlab("DeviceProtection")
+#boxplot DeviceProtection vs TotalCharges
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(DeviceProtection),y=TotalCharges))+xlab("DeviceProtection")
+#boxplot DeviceProtection vs MonthlyCharges
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(DeviceProtection),y=MonthlyCharges))+xlab("DeviceProtection")
+
+#boxplot TechSupport vs tenure
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(TechSupport),y=tenure))+xlab("TechSupport")
+#boxplot TechSupport vs TotalCharges
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(TechSupport),y=TotalCharges))+xlab("TechSupport")
+#boxplot TechSupport vs MonthlyCharges
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(TechSupport),y=MonthlyCharges))+xlab("TechSupport")
+
+#boxplot StreamingTV vs tenure
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(StreamingTV),y=tenure))+xlab("StreamingTVt")
+#boxplot StreamingTV vs TotalCharges
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(StreamingTV),y=TotalCharges))+xlab("StreamingTV")
+#boxplot StreamingTV vs MonthlyCharges
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(StreamingTV),y=MonthlyCharges))+xlab("StreamingTV")
+
+#boxplot StreamingMovies vs tenure
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(StreamingMovies),y=tenure))+xlab("StreamingMovies")
+#boxplot StreamingMovies vs TotalCharges
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(StreamingMovies),y=TotalCharges))+xlab("StreamingMovies")
+#boxplot StreamingMovies vs MonthlyCharges
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(StreamingMovies),y=MonthlyCharges))+xlab("StreamingMovies")
