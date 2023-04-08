@@ -306,3 +306,40 @@ confusionMatrix(telco.full.ct.pred.train,as.factor(train.df$Churn))
 #Performance evaluation on validation set
 telco.full.ct.pred.valid<-predict(telco.full.ct,valid.df,type = "class")
 confusionMatrix(telco.full.ct.pred.valid,as.factor(valid.df$Churn))
+
+#Perform cross validation within training dataset and record Compexity Parameters(cp)
+telco.ct<-rpart(Churn~., data=train.df,method = "class",
+               control = rpart.control(cp=0.00001,minsplit = 1,xval=10))
+#rel error (relative error): training erro
+#xerror (relative error):validation error
+#xstd (relative stdev):validation stdev
+#Each row represents a different level of tree
+#which is the best tree with the same level
+printcp(telco.ct)
+#The plot shows the change of xerror with CP
+#The minimum line is the minimum xerror plus xstd
+#The first xerror that drops below the minmum line
+#corresponds to the best cp - best pruned tree
+plotcp(telco.ct)
+
+#get reuslt nsplit best for 23
+#Rebuild the default (best_pruned) classification tree
+telco.default.ct<-rpart(Churn~.,data=train.df,method = "class",
+                       control = rpart.control(cp=0.00001,
+                                               maxdepth = 23, minsplit = 1))
+
+#Plot tree
+prp(telco.default.ct,type = 1,extra=1,under=TRUE,split.font = 2,
+    under.font = 1,nn.font = 3,varlen = -10,
+    box.col = ifelse(telco.default.ct$frame$var=="<leaf>","gray","pink"))
+
+#Performance evaluation on training set
+telco.default.ct.pred.train<-predict(telco.default.ct,train.df,type="class")
+confusionMatrix(telco.default.ct.pred.train,as.factor(train.df$Churn))
+
+#Performance evaluation on validation set
+telco.default.ct.pred.valid<-predict(telco.default.ct,valid.df,type="class")
+confusionMatrix(telco.default.ct.pred.valid,as.factor(valid.df$Churn))
+
+
+                       
