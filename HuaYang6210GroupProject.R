@@ -1,18 +1,34 @@
-install.packages(c("forecast",
-                   "ggplot2",
-                   "gplots",
-                   "reshape",
-                   "GGally",
-                   "MASS"))
+install.packages("FNN")
+install.packages("caret")
+install.packages("e1071")
+install.packages("ggplot2")
+install.packages("forecast")
+install.packages("gplots")
+install.packages("reshape")
+install.packages("GGally")
+install.packages("MASS")
+install.packages("tidyverse")
+install.packages("corrr")
+install.packages("rpart")
+install.packages("rpart.plot")
 #Library packages
+library(rpart)
+library(rpart.plot)
+library(dplyr)
+library(fastDummies)
+library(FNN)
+library(caret)
+library(e1071)
+library(tidyverse)
 library(forecast)
 library(ggplot2)
 library(gplots)
 library(reshape)
 library(GGally)
 library(MASS)
-install.packages("corrr")
 library(corrr)
+options(scipen = 999)
+#Total 7043 obs, 21 columns
 telco.df<-read.csv("Telco-Customer-Churn.csv")
 #test cor or each other numerica value
 telco.df%>%
@@ -172,3 +188,121 @@ ggplot(telco.df)+
 #boxplot StreamingMovies vs MonthlyCharges
 ggplot(telco.df)+
   geom_boxplot(aes(x=as.factor(StreamingMovies),y=MonthlyCharges))+xlab("StreamingMovies")
+
+#boxplot PaymentMethod vs tenure
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(PaymentMethod),y=tenure))+xlab('PaymentMethod')
+#boxplot PaymentMethod vs TotalCharges
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(PaymentMethod),y=TotalCharges))+xlab('PaymentMethod')
+#boxplot PaymentMethod vs MonthlyCharges
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(PaymentMethod),y=MonthlyCharges))+xlab('PaymentMethod')
+
+
+#remove null
+telco.df[is.na(telco.df)] <- NA
+telco.df<-telco.df[complete.cases(telco.df),]
+#now Total 7032 obs, 21 columns
+
+#data dimension reduction
+telco.df<-telco.df[,-c(1)]
+
+#create Contract to dummy dummy 1(one year above) or 0(month to month)1(DSL,Fiber optic) or 0(No)
+telco.df<-telco.df%>%
+  mutate(Contract=ifelse(Contract=="Month-to-month",0,1))
+
+#create InternetService to dummy 1(DSL,Fiber optic) or 0(No)
+telco.df<-telco.df%>%
+  mutate(InternetService=ifelse(InternetService=="No",0,1))
+
+#create OnlineSecurity to dummy 1(Yes) or 0(No,No internet service)
+telco.df<-telco.df%>%
+  mutate(OnlineSecurity=ifelse(OnlineSecurity=="Yes",1,0))
+
+#create Partner to dummy 1(Yes) or 0(No)
+telco.df<-telco.df%>%
+  mutate(Partner=ifelse(Partner=="No",0,1))
+
+#create Dependents to dummy 1(Yes) or 0(No)
+telco.df<-telco.df%>%
+  mutate(Dependents=ifelse(Dependents=="No",0,1))
+
+#create PhoneService to dummy 1(Yes) or 0(No)
+telco.df<-telco.df%>%
+  mutate(PhoneService=ifelse(PhoneService=="No",0,1))
+
+#create MultipleLines to dummy 1(Yes) or 0(No,No phone service)
+telco.df<-telco.df%>%
+  mutate(MultipleLines=ifelse(MultipleLines=="Yes",1,0))
+
+#create OnlineBackup to dummy 1(Yes) or 0(No,No internet service)
+telco.df<-telco.df%>%
+  mutate(OnlineBackup=ifelse(OnlineBackup=="Yes",1,0))
+
+#create DeviceProtection to dummy 1(Yes) or 0(No,No internet service)
+telco.df<-telco.df%>%
+  mutate(DeviceProtection=ifelse(DeviceProtection=="Yes",1,0))
+
+#create StreamingTV to dummy 1(Yes) or 0(No,No internet service)
+telco.df<-telco.df%>%
+  mutate(StreamingTV=ifelse(StreamingTV=="Yes",1,0))
+
+#create StreamingMovies to dummy 1(Yes) or 0(No,No internet service)
+telco.df<-telco.df%>%
+  mutate(StreamingMovies=ifelse(StreamingMovies=="Yes",1,0))
+
+#create PaperlessBilling to dummy 1(Yes) or 0(No)
+telco.df<-telco.df%>%
+  mutate(PaperlessBilling=ifelse(PaperlessBilling=="No",0,1))
+
+#create PaymentMethod to dummy 1(Bank transfer(automatic),Credit card(automatic))
+#or 0(Electronic check,Mailed check)
+telco.df<-telco.df%>%
+  mutate(PaymentMethod=ifelse((PaymentMethod=="Bank transfer (automatic)")| 
+                              (PaymentMethod=="Credit card (automatic)"),
+                                1,0))
+
+#create TechSupport to dummy 1(Yes) or 0(No,No internet service)
+telco.df<-telco.df%>%
+  mutate(TechSupport=ifelse(TechSupport=="Yes",1,0))
+
+#Partition data into training(70%) and validation(30%) sets
+set.seed(1)
+train.index<-sample(row.names(telco.df),dim(telco.df)[1]*0.7)
+valid.index<-setdiff(row.names(telco.df),train.index)
+train.df<-telco.df[train.index,]
+valid.df<-telco.df[valid.index,]
+#Build the default (best_pruned) classification tree
+telco.default.ct<-rpart(Churn~.,data=train.df,method = "class",
+                        control = rpart.control(xval=10))
+
+#Plot tree
+prp(telco.default.ct,type = 1,extra=1,under=TRUE,split.font = 2,
+    under.font = 1,nn.font = 3,varlen = -10,
+    box.col = ifelse(telco.default.ct$frame$var=="<leaf>","gray","pink"))
+
+#Performance evaluation on training set
+telco.default.ct.pred.train<-predict(telco.default.ct,train.df,type="class")
+confusionMatrix(telco.default.ct.pred.train,as.factor(train.df$Churn))
+
+#Performance evaluation on validation set
+telco.default.ct.pred.valid<-predict(telco.default.ct,valid.df,type="class")
+confusionMatrix(telco.default.ct.pred.valid,as.factor(valid.df$Churn))
+
+#Build a fully grown classification tree
+telco.full.ct<-rpart(Churn~., data=train.df,method = "class",
+                    control = rpart.control(minsplit = 1,cp=0))
+
+#Plot tree
+prp(telco.full.ct,type=1,extra=1,under=TRUE,split.font = 2,
+    under.font = 1,nn.font = 3,varlen = -10,
+    box.col = ifelse(telco.full.ct$frame$var=="<leaf>","gray","pink"))
+
+#Performance evaluation on training set
+telco.full.ct.pred.train<-predict(telco.full.ct,train.df,type = "class")
+confusionMatrix(telco.full.ct.pred.train,as.factor(train.df$Churn))
+
+#Performance evaluation on validation set
+telco.full.ct.pred.valid<-predict(telco.full.ct,valid.df,type = "class")
+confusionMatrix(telco.full.ct.pred.valid,as.factor(valid.df$Churn))
