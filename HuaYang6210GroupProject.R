@@ -11,6 +11,7 @@ install.packages("tidyverse")
 install.packages("corrr")
 install.packages("rpart")
 install.packages("rpart.plot")
+install.packages("gain")
 #Library packages
 library(rpart)
 library(rpart.plot)
@@ -27,9 +28,19 @@ library(reshape)
 library(GGally)
 library(MASS)
 library(corrr)
+library(gains)
 options(scipen = 999)
 #Total 7043 obs, 21 columns
 telco.df<-read.csv("Telco-Customer-Churn.csv")
+
+#remove null
+telco.df[is.na(telco.df)] <- NA
+telco.df<-telco.df[complete.cases(telco.df),]
+#now Total 7032 obs, 21 columns
+
+#data dimension reduction
+telco.df<-telco.df[,-c(1,2)]
+
 #test cor or each other numerica value
 telco.df%>%
   correlate()%>%
@@ -200,72 +211,192 @@ ggplot(telco.df)+
   geom_boxplot(aes(x=as.factor(PaymentMethod),y=MonthlyCharges))+xlab('PaymentMethod')
 
 
-#remove null
-telco.df[is.na(telco.df)] <- NA
-telco.df<-telco.df[complete.cases(telco.df),]
-#now Total 7032 obs, 21 columns
+#naive bayes model before I build other model need train every catagorical to numeric
+#factor all catagorical value
+telco.df$Contract<-factor(telco.df$Contract)
+telco.df$PaperlessBilling<-factor(telco.df$PaperlessBilling)
+telco.df$PaymentMethod<-factor(telco.df$PaymentMethod)
+telco.df$PhoneService<-factor(telco.df$PhoneService)
+telco.df$SeniorCitizen<-factor(telco.df$SeniorCitizen)
+telco.df$Partner<-factor(telco.df$Partner)
+telco.df$Dependents<-factor(telco.df$Dependents)
+telco.df$DeviceProtection<-factor(telco.df$DeviceProtection)
+telco.df$TechSupport<-factor(telco.df$TechSupport)
+telco.df$StreamingTV<-factor(telco.df$StreamingTV)
+telco.df$StreamingMovies<-factor(telco.df$StreamingMovies)
+telco.df$MultipleLines<-factor(telco.df$MultipleLines)
+telco.df$InternetService<-factor(telco.df$InternetService)
+telco.df$OnlineSecurity<-factor(telco.df$OnlineSecurity)
+telco.df$OnlineBackup<-factor(telco.df$OnlineBackup)
+#select a subset of variables for classification
+selected.var<- -c(1,4,18,17)
+names(telco.df)[selected.var]
+#set Churn level
+telco.df[,19]<-factor(telco.df[,19],levels = c("Yes","No"))
+levels(telco.df$Churn)
+#Partition data into training(70%) and validation(30%) sets
+set.seed(1)
+train.index<-sample(row.names(telco.df),dim(telco.df)[1]*0.7)
+valid.index<-setdiff(row.names(telco.df),train.index)
+train.df<-telco.df[train.index,selected.var]
+valid.df<-telco.df[valid.index,selected.var]
+tel.nb<-naiveBayes(Churn~.,data = train.df)
+tel.nb
 
-#data dimension reduction
-telco.df<-telco.df[,-c(1)]
+#Performance evaluating of traning set
+pred.class<-predict(tel.nb,newdata = train.df)
+confusionMatrix(pred.class,train.df$Churn)
+#Performance evaluation of validation set
+pred.class<-predict(tel.nb,newdata = valid.df)
+confusionMatrix(pred.class,valid.df$Churn)
 
-#create Contract to dummy dummy 1(one year above) or 0(month to month)1(DSL,Fiber optic) or 0(No)
+#Draw lift chart
+gain<-gains(ifelse(valid.df$Churn=="Yes",1,0),pred.prob[,1],groups=100)
+plot(c(0,gain$cume.pct.of.total*sum(valid.df$Churn=="Yes"))~c(0,gain$cume.obs),
+     xlab="# of cases",ylab="cumulative #of Churn detected",main="Lift Chart of tel",type="l")
+lines(c(0,sum(valid.df$Churn=="Yes"))~c(0,dim(valid.df)[1]),lty=2)
+#good
+
+#test Churn cor with other values
+#barPot Churn vs tenure
+data.for.plot<-aggregate(df$Churn,by=list(telco.df$gender),FUN=mean)
+names(data.for.plot)<-c("Churn","Meantenure")
+ggplot(data.for.plot)+
+  geom_bar(aes(x=Churn,y=Meantenure),stat = "identity")
+
+#set Churn yes as 1 no as 0
 telco.df<-telco.df%>%
-  mutate(Contract=ifelse(Contract=="Month-to-month",0,1))
+  mutate(Churn=ifelse(Churn=="Yes",1,0))
 
-#create InternetService to dummy 1(DSL,Fiber optic) or 0(No)
-telco.df<-telco.df%>%
-  mutate(InternetService=ifelse(InternetService=="No",0,1))
+#set Churn level
+telco.df[,19]<-factor(telco.df[,19],levels = c(1,0))
+levels(telco.df$Churn)
+class(telco.df$Churn)
 
-#create OnlineSecurity to dummy 1(Yes) or 0(No,No internet service)
-telco.df<-telco.df%>%
-  mutate(OnlineSecurity=ifelse(OnlineSecurity=="Yes",1,0))
+#boxplot PaymentMethod vs Churn
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(PaymentMethod),y=Churn))+xlab('PaymentMethod')
 
-#create Partner to dummy 1(Yes) or 0(No)
-telco.df<-telco.df%>%
-  mutate(Partner=ifelse(Partner=="No",0,1))
+#boxplot Contract vs Churn
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(Contract),y=Churn))+xlab('Contract')
 
-#create Dependents to dummy 1(Yes) or 0(No)
+#boxplot PaperlessBilling vs Churn
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(PaperlessBilling),y=Churn))+xlab('PaperlessBilling')
+
+#boxplot PhoneService vs Churn
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(PhoneService),y=Churn))+xlab('PhoneService')
+
+#boxplot gender vs Churn
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(gender),y=Churn))+xlab('gender')
+
+#boxplot SeniorCitizen vs Churn
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(SeniorCitizen),y=Churn))+xlab('SeniorCitizen')
+
+#boxplot Partner vs Churn
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(Partner),y=Churn))+xlab('Partner')
+
+#boxplot Dependents vs Churn
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(Dependents),y=Churn))+xlab('Dependents')
+
+#boxplot DeviceProtection vs Churn
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(DeviceProtection),y=Churn))+xlab('DeviceProtection')
+
+#boxplot TechSupport vs Churn
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(TechSupport),y=Churn))+xlab('TechSupport')
+
+#boxplot StreamingTV vs Churn
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(StreamingTV),y=Churn))+xlab('StreamingTV')
+
+#boxplot StreamingMovies vs Churn
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(StreamingMovies),y=Churn))+xlab('StreamingMovies')
+
+#boxplot MultipleLines vs Churn
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(MultipleLines),y=Churn))+xlab('MultipleLines')
+
+#boxplot InternetService vs Churn
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(InternetService),y=Churn))+xlab('InternetService')
+
+#boxplot OnlineSecurity vs Churn
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(OnlineSecurity),y=Churn))+xlab('OnlineSecurity')
+
+#boxplot OnlineBackup vs Churn
+ggplot(telco.df)+
+  geom_boxplot(aes(x=as.factor(OnlineBackup),y=Churn))+xlab('OnlineBackup')
+
+
+#create Contract to dummy dummy 0(one year above) or 1(month to month)
 telco.df<-telco.df%>%
-  mutate(Dependents=ifelse(Dependents=="No",0,1))
+  mutate(Contract=ifelse(Contract=="Month-to-month",1,0))
+
+
+#create InternetService to dummy 1(Fiber optic) or 0(No,DSL,)
+telco.df<-telco.df%>%
+  mutate(InternetService=ifelse(InternetService=="Fiber optic",1,0))
+
+#create OnlineSecurity to dummy 1(No) or 0(Yes,No internet service)
+telco.df<-telco.df%>%
+  mutate(OnlineSecurity=ifelse(OnlineSecurity=="No",1,0))
+
+#create Partner to dummy 1(No) or 0(Yes)
+telco.df<-telco.df%>%
+  mutate(Partner=ifelse(Partner=="No",1,0))
+
+#create Dependents to dummy 0(Yes) or 1(No)
+telco.df<-telco.df%>%
+  mutate(Dependents=ifelse(Dependents=="No",1,0))
 
 #create PhoneService to dummy 1(Yes) or 0(No)
 telco.df<-telco.df%>%
   mutate(PhoneService=ifelse(PhoneService=="No",0,1))
 
-#create MultipleLines to dummy 1(Yes) or 0(No,No phone service)
+#create MultipleLines to dummy 1(Yes,No) or 0(No phone service)
 telco.df<-telco.df%>%
-  mutate(MultipleLines=ifelse(MultipleLines=="Yes",1,0))
+  mutate(MultipleLines=ifelse(MultipleLines=="No phone service",0,1))
 
-#create OnlineBackup to dummy 1(Yes) or 0(No,No internet service)
+#create OnlineBackup to dummy 1(No) or 0(Yes,No internet service)
 telco.df<-telco.df%>%
-  mutate(OnlineBackup=ifelse(OnlineBackup=="Yes",1,0))
+  mutate(OnlineBackup=ifelse(OnlineBackup=="No",1,0))
 
-#create DeviceProtection to dummy 1(Yes) or 0(No,No internet service)
+#create DeviceProtection to dummy 1(No) or 0(Yes,No internet service)
 telco.df<-telco.df%>%
-  mutate(DeviceProtection=ifelse(DeviceProtection=="Yes",1,0))
+  mutate(DeviceProtection=ifelse(DeviceProtection=="No",1,0))
 
-#create StreamingTV to dummy 1(Yes) or 0(No,No internet service)
+#create StreamingTV to dummy 1(Yes,No) or 0(No internet service)
 telco.df<-telco.df%>%
-  mutate(StreamingTV=ifelse(StreamingTV=="Yes",1,0))
+  mutate(StreamingTV=ifelse(StreamingTV=="No internet service",0,1))
 
-#create StreamingMovies to dummy 1(Yes) or 0(No,No internet service)
+#create StreamingMovies to dummy 1(Yes,No) or 0(No internet service)
 telco.df<-telco.df%>%
-  mutate(StreamingMovies=ifelse(StreamingMovies=="Yes",1,0))
+  mutate(StreamingMovies=ifelse(StreamingMovies=="No internet service",0,1))
 
 #create PaperlessBilling to dummy 1(Yes) or 0(No)
 telco.df<-telco.df%>%
   mutate(PaperlessBilling=ifelse(PaperlessBilling=="No",0,1))
 
-#create PaymentMethod to dummy 1(Bank transfer(automatic),Credit card(automatic))
-#or 0(Electronic check,Mailed check)
+#create PaymentMethod to dummy 0(Bank transfer(automatic),Mailed check,Credit card(automatic))
+#or 1(Electronic check)
 telco.df<-telco.df%>%
-  mutate(PaymentMethod=ifelse((PaymentMethod=="Bank transfer (automatic)")| 
-                              (PaymentMethod=="Credit card (automatic)"),
-                                1,0))
+  mutate(PaymentMethod=ifelse(PaymentMethod=="Electronic check",1,0))
 
-#create TechSupport to dummy 1(Yes) or 0(No,No internet service)
+#create TechSupport to dummy 1(No) or 0(Yes,No internet service)
 telco.df<-telco.df%>%
-  mutate(TechSupport=ifelse(TechSupport=="Yes",1,0))
+  mutate(TechSupport=ifelse(TechSupport=="No",1,0))
+#Normalization data save to cvs, give other teammate to use it
+write.csv(telco.df, "telco.csv", row.names=FALSE)
 
 #Partition data into training(70%) and validation(30%) sets
 set.seed(1)
@@ -273,6 +404,8 @@ train.index<-sample(row.names(telco.df),dim(telco.df)[1]*0.7)
 valid.index<-setdiff(row.names(telco.df),train.index)
 train.df<-telco.df[train.index,]
 valid.df<-telco.df[valid.index,]
+
+#build model classification tree
 #Build the default (best_pruned) classification tree
 telco.default.ct<-rpart(Churn~.,data=train.df,method = "class",
                         control = rpart.control(xval=10))
@@ -342,4 +475,30 @@ telco.default.ct.pred.valid<-predict(telco.default.ct,valid.df,type="class")
 confusionMatrix(telco.default.ct.pred.valid,as.factor(valid.df$Churn))
 
 
-                       
+#model 2 Logistic Regression
+train.df$Churn <- as.factor(train.df$Churn)
+logit.reg<-glm(Churn~.,data=train.df,family="binomial",na.action=na.pass)
+summary(logit.reg)
+
+#Prediction
+#Compute propensity
+pred.prob<-predict(logit.reg,valid.df[,-19],type="response")
+#Classification: Equally important
+pred.class<-ifelse(pred.prob>=0.5,1,0)
+#Evaluating classification performance, Churn=1 is the class of interest
+confusionMatrix(factor(pred.class,levels=c(1,0)),
+                factor(valid.df$Churn,levels = c(1,0)))
+
+
+#lift chart
+gain<-gains(valid.df$Churn,pred.prob,groups=length(pred.prob))
+plot(c(0,gain$cume.pct.of.total*sum(valid.df$Churn))~c(0,gain$cume.obs),
+     xlab="#cases",ylab="cumulative #of responses",main="Lift Chart of tel",type="l")
+lines(c(0,sum(valid.df$Churn))~c(0,dim(valid.df)[1]),lty=2)
+#Decile-wise lift chart
+gain<-gains(valid.df$Churn,pred.prob)
+heights<-gain$mean.resp/mean(valid.df$Churn)
+midpoints<-barplot(heights,names.arg=gain$depth,ylim=c(0,9),
+                   xlab="Percentile",ylab="Mean Response",
+                   main="Decile-wise lift chart")
+text(midpoints,heights+0.5,labels=round(heights,1),cex=0.8)
