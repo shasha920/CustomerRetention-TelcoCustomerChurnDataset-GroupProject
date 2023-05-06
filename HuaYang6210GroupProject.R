@@ -424,18 +424,18 @@ for(i in 1:10){
   #Classification: Equally important
   logit.valid.pred.class <- ifelse(valid.pred.prob >= 0.5, 1, 0)
   logit.train.pred.class <- ifelse(train.pred.prob >= 0.5,1, 0)
-  valid.sub.fold <- data.frame('prob' = valid.pred.prob, 'class' = logit.valid.pred.class)
-  train.sub.fold <- data.frame('prob' = train.pred.prob, 'class' = logit.train.pred.class)
+  valid.sub.fold <- data.frame('prob' = valid.pred.prob, 'class' = logit.valid.pred.class,'actual' = valid.data[, 19])
+  train.sub.fold <- data.frame('prob' = train.pred.prob, 'class' = logit.train.pred.class,'actual' = train.data[, 19])
   logit.valid.result<- rbind(valid.result, valid.sub.fold)
   logit.train.result <- rbind(train.result, train.sub.fold)
 }
 
 #Performance evaluation of validation set
-confusionMatrix(factor(logit.valid.pred.class,,levels=c(1,0)),
-                factor(valid.data$Churn,,levels=c(1,0)))
+confusionMatrix(factor(logit.valid.pred.class,levels=c(1,0)),
+                factor(valid.data$Churn,levels=c(1,0)))
 #Performance evaluating of traning set
-confusionMatrix(factor(logit.train.pred.class,,levels=c(1,0)),
-                factor(train.data$Churn,,levels=c(1,0)))
+confusionMatrix(factor(logit.train.pred.class,levels=c(1,0)),
+                factor(train.data$Churn,levels=c(1,0)))
 
 #lift chart
 gain<-gains(valid.data$Churn,valid.pred.prob,groups=length(valid.pred.prob))
