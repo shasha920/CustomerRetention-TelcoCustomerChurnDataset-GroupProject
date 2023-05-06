@@ -41,6 +41,7 @@ telco.df<-telco.df[complete.cases(telco.df),]
 #data dimension reduction
 telco.df<-telco.df[,-c(1,2)]
 
+#This is for Data exploration
 #test cor or each other numerica value
 telco.df%>%
   correlate()%>%
@@ -210,68 +211,12 @@ ggplot(telco.df)+
 ggplot(telco.df)+
   geom_boxplot(aes(x=as.factor(PaymentMethod),y=MonthlyCharges))+xlab('PaymentMethod')
 
-
-#naive bayes model before I build other model need train every catagorical to numeric
-#factor all catagorical value
-telco.df$Contract<-factor(telco.df$Contract)
-telco.df$PaperlessBilling<-factor(telco.df$PaperlessBilling)
-telco.df$PaymentMethod<-factor(telco.df$PaymentMethod)
-telco.df$PhoneService<-factor(telco.df$PhoneService)
-telco.df$SeniorCitizen<-factor(telco.df$SeniorCitizen)
-telco.df$Partner<-factor(telco.df$Partner)
-telco.df$Dependents<-factor(telco.df$Dependents)
-telco.df$DeviceProtection<-factor(telco.df$DeviceProtection)
-telco.df$TechSupport<-factor(telco.df$TechSupport)
-telco.df$StreamingTV<-factor(telco.df$StreamingTV)
-telco.df$StreamingMovies<-factor(telco.df$StreamingMovies)
-telco.df$MultipleLines<-factor(telco.df$MultipleLines)
-telco.df$InternetService<-factor(telco.df$InternetService)
-telco.df$OnlineSecurity<-factor(telco.df$OnlineSecurity)
-telco.df$OnlineBackup<-factor(telco.df$OnlineBackup)
-#select a subset of variables for classification
-selected.var<- -c(1,4,18,17)
-names(telco.df)[selected.var]
-#set Churn level
-telco.df[,19]<-factor(telco.df[,19],levels = c("Yes","No"))
-levels(telco.df$Churn)
-#Partition data into training(70%) and validation(30%) sets
-set.seed(1)
-train.index<-sample(row.names(telco.df),dim(telco.df)[1]*0.7)
-valid.index<-setdiff(row.names(telco.df),train.index)
-train.df<-telco.df[train.index,selected.var]
-valid.df<-telco.df[valid.index,selected.var]
-tel.nb<-naiveBayes(Churn~.,data = train.df)
-tel.nb
-
-#Performance evaluating of traning set
-pred.class<-predict(tel.nb,newdata = train.df)
-confusionMatrix(pred.class,train.df$Churn)
-#Performance evaluation of validation set
-pred.class<-predict(tel.nb,newdata = valid.df)
-confusionMatrix(pred.class,valid.df$Churn)
-
-#Draw lift chart
-gain<-gains(ifelse(valid.df$Churn=="Yes",1,0),pred.prob[,1],groups=100)
-plot(c(0,gain$cume.pct.of.total*sum(valid.df$Churn=="Yes"))~c(0,gain$cume.obs),
-     xlab="# of cases",ylab="cumulative #of Churn detected",main="Lift Chart of tel",type="l")
-lines(c(0,sum(valid.df$Churn=="Yes"))~c(0,dim(valid.df)[1]),lty=2)
-#good
-
 #test Churn cor with other values
 #barPot Churn vs tenure
 data.for.plot<-aggregate(df$Churn,by=list(telco.df$gender),FUN=mean)
 names(data.for.plot)<-c("Churn","Meantenure")
 ggplot(data.for.plot)+
   geom_bar(aes(x=Churn,y=Meantenure),stat = "identity")
-
-#set Churn yes as 1 no as 0
-telco.df<-telco.df%>%
-  mutate(Churn=ifelse(Churn=="Yes",1,0))
-
-#set Churn level
-telco.df[,19]<-factor(telco.df[,19],levels = c(1,0))
-levels(telco.df$Churn)
-class(telco.df$Churn)
 
 #boxplot PaymentMethod vs Churn
 ggplot(telco.df)+
@@ -338,6 +283,63 @@ ggplot(telco.df)+
   geom_boxplot(aes(x=as.factor(OnlineBackup),y=Churn))+xlab('OnlineBackup')
 
 
+#before normalization data do model 1 naive bayes model
+#naive bayes model before I build other model need train every catagorical to numeric
+#factor all catagorical value
+telco.df$Contract<-factor(telco.df$Contract)
+telco.df$PaperlessBilling<-factor(telco.df$PaperlessBilling)
+telco.df$PaymentMethod<-factor(telco.df$PaymentMethod)
+telco.df$PhoneService<-factor(telco.df$PhoneService)
+telco.df$SeniorCitizen<-factor(telco.df$SeniorCitizen)
+telco.df$Partner<-factor(telco.df$Partner)
+telco.df$Dependents<-factor(telco.df$Dependents)
+telco.df$DeviceProtection<-factor(telco.df$DeviceProtection)
+telco.df$TechSupport<-factor(telco.df$TechSupport)
+telco.df$StreamingTV<-factor(telco.df$StreamingTV)
+telco.df$StreamingMovies<-factor(telco.df$StreamingMovies)
+telco.df$MultipleLines<-factor(telco.df$MultipleLines)
+telco.df$InternetService<-factor(telco.df$InternetService)
+telco.df$OnlineSecurity<-factor(telco.df$OnlineSecurity)
+telco.df$OnlineBackup<-factor(telco.df$OnlineBackup)
+#select a subset of variables for classification
+#cut continuous values
+selected.var<- -c(1,4,18,17)
+names(telco.df)[selected.var]
+#set Churn level
+telco.df[,19]<-factor(telco.df[,19],levels = c("Yes","No"))
+levels(telco.df$Churn)
+#Partition data into training(70%) and validation(30%) sets
+set.seed(1)
+train.index<-sample(row.names(telco.df),dim(telco.df)[1]*0.7)
+valid.index<-setdiff(row.names(telco.df),train.index)
+train.df<-telco.df[train.index,selected.var]
+valid.df<-telco.df[valid.index,selected.var]
+tel.nb<-naiveBayes(Churn~.,data = train.df)
+tel.nb
+
+#compute the propensity
+pred.prob <- predict(tel.nb, newdata = valid.df, type = "raw")
+
+#Performance evaluating of traning set
+pred.class<-predict(tel.nb,newdata = train.df)
+confusionMatrix(pred.class,train.df$Churn)
+#Performance evaluation of validation set
+pred.class<-predict(tel.nb,newdata = valid.df)
+confusionMatrix(pred.class,valid.df$Churn)
+
+#Draw lift chart
+gain<-gains(ifelse(valid.df$Churn=="Yes",1,0),pred.prob[,1],groups=100)
+plot(c(0,gain$cume.pct.of.total*sum(valid.df$Churn=="Yes"))~c(0,gain$cume.obs),
+     xlab="# of cases",ylab="cumulative #of Churn detected",main="Lift Chart of tel",type="l")
+lines(c(0,sum(valid.df$Churn=="Yes"))~c(0,dim(valid.df)[1]),lty=2)
+#good
+
+
+#Normalization Data
+#set Churn yes as 1 no as 0
+telco.df<-telco.df%>%
+  mutate(Churn=ifelse(Churn=="Yes",1,0))
+
 #create Contract to dummy dummy 0(one year above) or 1(month to month)
 telco.df<-telco.df%>%
   mutate(Contract=ifelse(Contract=="Month-to-month",1,0))
@@ -396,16 +398,63 @@ telco.df<-telco.df%>%
 telco.df<-telco.df%>%
   mutate(TechSupport=ifelse(TechSupport=="No",1,0))
 #Normalization data save to cvs, give other teammate to use it
-write.csv(telco.df, "telco.csv", row.names=FALSE)
+#write.csv(telco.df, "telco.csv", row.names=FALSE)
 
+#Partition the data use 10-fold cross
+fold.10 <- createFolds(telco.df$Churn,k=10)
+fold.10
+
+train.data <- list()
+vaild.data <- list()
+
+for(i in 1:10){
+  valid.data <- telco.df[fold.10[[i]],]
+  train.data <- telco.df[-fold.10[[i]],]
+}
+
+
+valid.result <- data.frame()
+train.result <- data.frame()
+
+for(i in 1:10){  
+  logit.reg <- glm(Churn ~ ., data = train.data, family = "binomial") 
+  # Compute propensity
+  valid.pred.prob <- predict(logit.reg, valid.data[,-19], type = "response")
+  train.pred.prob <- predict(logit.reg, train.data[,-19], type = "response")
+  #Classification: Equally important
+  logit.valid.pred.class <- ifelse(valid.pred.prob >= 0.5, 1, 0)
+  logit.train.pred.class <- ifelse(train.pred.prob >= 0.5,1, 0)
+  valid.sub.fold <- data.frame('prob' = valid.pred.prob, 'class' = logit.valid.pred.class)
+  train.sub.fold <- data.frame('prob' = train.pred.prob, 'class' = logit.train.pred.class)
+  logit.valid.result<- rbind(valid.result, valid.sub.fold)
+  logit.train.result <- rbind(train.result, train.sub.fold)
+}
+
+#Performance evaluation of validation set
+confusionMatrix(factor(logit.valid.pred.class,,levels=c(1,0)),
+                factor(valid.data$Churn,,levels=c(1,0)))
+#Performance evaluating of traning set
+confusionMatrix(factor(logit.train.pred.class,,levels=c(1,0)),
+                factor(train.data$Churn,,levels=c(1,0)))
+
+#lift chart
+gain<-gains(valid.data$Churn,valid.pred.prob,groups=length(valid.pred.prob))
+plot(c(0,gain$cume.pct.of.total*sum(valid.data$Churn))~c(0,gain$cume.obs),
+     xlab="#cases",ylab="cumulative #of responses",main="Lift Chart of tel",type="l")
+lines(c(0,sum(valid.data$Churn))~c(0,dim(valid.data)[1]),lty=2)
+#good
+
+
+#build model2 classification tree
+#set Churn level
+telco.df[,19]<-factor(telco.df[,19],levels = c(1,0))
+levels(telco.df$Churn)
 #Partition data into training(70%) and validation(30%) sets
 set.seed(1)
 train.index<-sample(row.names(telco.df),dim(telco.df)[1]*0.7)
 valid.index<-setdiff(row.names(telco.df),train.index)
 train.df<-telco.df[train.index,]
 valid.df<-telco.df[valid.index,]
-
-#build model classification tree
 #Build the default (best_pruned) classification tree
 telco.default.ct<-rpart(Churn~.,data=train.df,method = "class",
                         control = rpart.control(xval=10))
@@ -422,83 +471,42 @@ confusionMatrix(telco.default.ct.pred.train,as.factor(train.df$Churn))
 #Performance evaluation on validation set
 telco.default.ct.pred.valid<-predict(telco.default.ct,valid.df,type="class")
 confusionMatrix(telco.default.ct.pred.valid,as.factor(valid.df$Churn))
+#good
+
 
 #Build a fully grown classification tree
-telco.full.ct<-rpart(Churn~., data=train.df,method = "class",
-                    control = rpart.control(minsplit = 1,cp=0))
+#telco.full.ct<-rpart(Churn~., data=train.df,method = "class",
+                     #control = rpart.control(minsplit = 1,cp=0))
 
 #Plot tree
-prp(telco.full.ct,type=1,extra=1,under=TRUE,split.font = 2,
-    under.font = 1,nn.font = 3,varlen = -10,
-    box.col = ifelse(telco.full.ct$frame$var=="<leaf>","gray","pink"))
+#prp(telco.full.ct,type=1,extra=1,under=TRUE,split.font = 2,
+    #under.font = 1,nn.font = 3,varlen = -10,
+    #box.col = ifelse(telco.full.ct$frame$var=="<leaf>","gray","pink"))
 
 #Performance evaluation on training set
-telco.full.ct.pred.train<-predict(telco.full.ct,train.df,type = "class")
-confusionMatrix(telco.full.ct.pred.train,as.factor(train.df$Churn))
+#telco.full.ct.pred.train<-predict(telco.full.ct,train.df,type = "class")
+#confusionMatrix(telco.full.ct.pred.train,as.factor(train.df$Churn))
 
 #Performance evaluation on validation set
-telco.full.ct.pred.valid<-predict(telco.full.ct,valid.df,type = "class")
-confusionMatrix(telco.full.ct.pred.valid,as.factor(valid.df$Churn))
+#telco.full.ct.pred.valid<-predict(telco.full.ct,valid.df,type = "class")
+#confusionMatrix(telco.full.ct.pred.valid,as.factor(valid.df$Churn))
 
 #Perform cross validation within training dataset and record Compexity Parameters(cp)
-telco.ct<-rpart(Churn~., data=train.df,method = "class",
-               control = rpart.control(cp=0.00001,minsplit = 1,xval=10))
+#telco.ct<-rpart(Churn~., data=train.df,method = "class",
+                #control = rpart.control(cp=0.00001,minsplit = 1,xval=10))
 #rel error (relative error): training erro
 #xerror (relative error):validation error
 #xstd (relative stdev):validation stdev
 #Each row represents a different level of tree
 #which is the best tree with the same level
-printcp(telco.ct)
+#printcp(telco.ct)
 #The plot shows the change of xerror with CP
 #The minimum line is the minimum xerror plus xstd
 #The first xerror that drops below the minmum line
 #corresponds to the best cp - best pruned tree
-plotcp(telco.ct)
-
+#plotcp(telco.ct)
 #get reuslt nsplit best for 23
-#Rebuild the default (best_pruned) classification tree
-telco.default.ct<-rpart(Churn~.,data=train.df,method = "class",
-                       control = rpart.control(cp=0.00001,
-                                               maxdepth = 23, minsplit = 1))
-
-#Plot tree
-prp(telco.default.ct,type = 1,extra=1,under=TRUE,split.font = 2,
-    under.font = 1,nn.font = 3,varlen = -10,
-    box.col = ifelse(telco.default.ct$frame$var=="<leaf>","gray","pink"))
-
-#Performance evaluation on training set
-telco.default.ct.pred.train<-predict(telco.default.ct,train.df,type="class")
-confusionMatrix(telco.default.ct.pred.train,as.factor(train.df$Churn))
-
-#Performance evaluation on validation set
-telco.default.ct.pred.valid<-predict(telco.default.ct,valid.df,type="class")
-confusionMatrix(telco.default.ct.pred.valid,as.factor(valid.df$Churn))
 
 
-#model 2 Logistic Regression
-train.df$Churn <- as.factor(train.df$Churn)
-logit.reg<-glm(Churn~.,data=train.df,family="binomial",na.action=na.pass)
-summary(logit.reg)
-
-#Prediction
-#Compute propensity
-pred.prob<-predict(logit.reg,valid.df[,-19],type="response")
-#Classification: Equally important
-pred.class<-ifelse(pred.prob>=0.5,1,0)
-#Evaluating classification performance, Churn=1 is the class of interest
-confusionMatrix(factor(pred.class,levels=c(1,0)),
-                factor(valid.df$Churn,levels = c(1,0)))
 
 
-#lift chart
-gain<-gains(valid.df$Churn,pred.prob,groups=length(pred.prob))
-plot(c(0,gain$cume.pct.of.total*sum(valid.df$Churn))~c(0,gain$cume.obs),
-     xlab="#cases",ylab="cumulative #of responses",main="Lift Chart of tel",type="l")
-lines(c(0,sum(valid.df$Churn))~c(0,dim(valid.df)[1]),lty=2)
-#Decile-wise lift chart
-gain<-gains(valid.df$Churn,pred.prob)
-heights<-gain$mean.resp/mean(valid.df$Churn)
-midpoints<-barplot(heights,names.arg=gain$depth,ylim=c(0,9),
-                   xlab="Percentile",ylab="Mean Response",
-                   main="Decile-wise lift chart")
-text(midpoints,heights+0.5,labels=round(heights,1),cex=0.8)
