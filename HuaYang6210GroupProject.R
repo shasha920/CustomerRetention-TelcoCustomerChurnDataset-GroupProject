@@ -41,7 +41,7 @@ telco.df<-telco.df[complete.cases(telco.df),]
 #data dimension reduction
 telco.df<-telco.df[,-c(1,2)]
 
-#This is for Data exploration
+#This is for Data exploration!
 #test cor or each other numerica value
 telco.df%>%
   correlate()%>%
@@ -401,48 +401,29 @@ telco.df<-telco.df%>%
 #write.csv(telco.df, "telco.csv", row.names=FALSE)
 
 #Partition the data use 10-fold cross
-fold.10 <- createFolds(telco.df$Churn,k=10)
-fold.10
+set.seed(1)
+fold <- createFolds(telco.df$Churn,k=10)
+fold
 
-train.data <- list()
-vaild.data <- list()
+results<-c()
 
 for(i in 1:10){
-  valid.data <- telco.df[fold.10[[i]],]
-  train.data <- telco.df[-fold.10[[i]],]
+  valid.data <- telco.df[fold[[i]],]
+  train.data <- telco.df[-fold[[i]],]
+  
+  logit.reg <- glm(Churn ~ ., data = train.data, family = "binomial")
+  
+  pred.prob <- predict(logit.reg, valid.data, type = "response")
+
+  pred.class <- ifelse(pred.prob >= 0.5, 1, 0)
+ 
+  accuracy<-mean(pred.class==valid.data$Churn)
+  
+  results<-c(results,accuracy)
 }
 
-
-valid.result <- data.frame()
-train.result <- data.frame()
-
-for(i in 1:10){  
-  logit.reg <- glm(Churn ~ ., data = train.data, family = "binomial") 
-  # Compute propensity
-  valid.pred.prob <- predict(logit.reg, valid.data[,-19], type = "response")
-  train.pred.prob <- predict(logit.reg, train.data[,-19], type = "response")
-  #Classification: Equally important
-  logit.valid.pred.class <- ifelse(valid.pred.prob >= 0.5, 1, 0)
-  logit.train.pred.class <- ifelse(train.pred.prob >= 0.5,1, 0)
-  valid.sub.fold <- data.frame('prob' = valid.pred.prob, 'class' = logit.valid.pred.class,'actual' = valid.data[, 19])
-  train.sub.fold <- data.frame('prob' = train.pred.prob, 'class' = logit.train.pred.class,'actual' = train.data[, 19])
-  logit.valid.result<- rbind(valid.result, valid.sub.fold)
-  logit.train.result <- rbind(train.result, train.sub.fold)
-}
-
-#Performance evaluation of validation set
-confusionMatrix(factor(logit.valid.pred.class,levels=c(1,0)),
-                factor(valid.data$Churn,levels=c(1,0)))
-#Performance evaluating of traning set
-confusionMatrix(factor(logit.train.pred.class,levels=c(1,0)),
-                factor(train.data$Churn,levels=c(1,0)))
-
-#lift chart
-gain<-gains(valid.data$Churn,valid.pred.prob,groups=length(valid.pred.prob))
-plot(c(0,gain$cume.pct.of.total*sum(valid.data$Churn))~c(0,gain$cume.obs),
-     xlab="#cases",ylab="cumulative #of responses",main="Lift Chart of tel",type="l")
-lines(c(0,sum(valid.data$Churn))~c(0,dim(valid.data)[1]),lty=2)
-#good
+results
+mean(results)
 
 
 #build model2 classification tree
@@ -475,21 +456,21 @@ confusionMatrix(telco.default.ct.pred.valid,as.factor(valid.df$Churn))
 
 
 #Build a fully grown classification tree
-#telco.full.ct<-rpart(Churn~., data=train.df,method = "class",
-                     #control = rpart.control(minsplit = 1,cp=0))
+telco.full.ct<-rpart(Churn~., data=train.df,method = "class",
+                     control = rpart.control(minsplit = 1,cp=0))
 
 #Plot tree
-#prp(telco.full.ct,type=1,extra=1,under=TRUE,split.font = 2,
-    #under.font = 1,nn.font = 3,varlen = -10,
-    #box.col = ifelse(telco.full.ct$frame$var=="<leaf>","gray","pink"))
+prp(telco.full.ct,type=1,extra=1,under=TRUE,split.font = 2,
+    under.font = 1,nn.font = 3,varlen = -10,
+    box.col = ifelse(telco.full.ct$frame$var=="<leaf>","gray","pink"))
 
 #Performance evaluation on training set
-#telco.full.ct.pred.train<-predict(telco.full.ct,train.df,type = "class")
-#confusionMatrix(telco.full.ct.pred.train,as.factor(train.df$Churn))
+telco.full.ct.pred.train<-predict(telco.full.ct,train.df,type = "class")
+confusionMatrix(telco.full.ct.pred.train,as.factor(train.df$Churn))
 
 #Performance evaluation on validation set
-#telco.full.ct.pred.valid<-predict(telco.full.ct,valid.df,type = "class")
-#confusionMatrix(telco.full.ct.pred.valid,as.factor(valid.df$Churn))
+telco.full.ct.pred.valid<-predict(telco.full.ct,valid.df,type = "class")
+confusionMatrix(telco.full.ct.pred.valid,as.factor(valid.df$Churn))
 
 #Perform cross validation within training dataset and record Compexity Parameters(cp)
 #telco.ct<-rpart(Churn~., data=train.df,method = "class",
