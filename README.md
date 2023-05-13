@@ -5,7 +5,7 @@
 
 *Team Member: Elia Johnson, Khushi Masarani, Jasmin Zeng*<br>
 
-*Due: May 12, 2023*<br>
+*May 12, 2023*<br>
 
 *Executive Summary*<br>
 
