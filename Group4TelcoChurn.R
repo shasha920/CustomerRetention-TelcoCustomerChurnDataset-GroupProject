@@ -470,7 +470,7 @@ ggplot(telco.df)+
   geom_boxplot(aes(x=as.factor(OnlineBackup),y=Churn))+xlab('OnlineBackup')
 
 
-#before normalization data do model 1 naive bayes model
+#before normalization data do model1 naive bayes model
 #naive bayes model before I build other model need train every catagorical to numeric
 #factor all catagorical value
 telco.df$Contract<-factor(telco.df$Contract)
@@ -492,33 +492,64 @@ telco.df$OnlineBackup<-factor(telco.df$OnlineBackup)
 #cut continuous values
 selected.var<- -c(1,4,18,17)
 names(telco.df)[selected.var]
+nb.df<-telco.df[,selected.var]
 #set Churn level
-telco.df[,19]<-factor(telco.df[,19],levels = c("Yes","No"))
-levels(telco.df$Churn)
-#Partition data into training(70%) and validation(30%) sets
+nb.df[,15]<-factor(nb.df[,15],levels = c("Yes","No"))
+levels(nb.df$Churn)
+#Partition the data use 10-fold cross
 set.seed(1)
-train.index<-sample(row.names(telco.df),dim(telco.df)[1]*0.7)
-valid.index<-setdiff(row.names(telco.df),train.index)
-train.df<-telco.df[train.index,selected.var]
-valid.df<-telco.df[valid.index,selected.var]
-tel.nb<-naiveBayes(Churn~.,data = train.df)
+fold <- createFolds(nb.df$Churn,k=10)
+fold
+
+valid.result <- data.frame()
+train.result <- data.frame()
+
+for(i in 1:10){
+  valid.data <- nb.df[fold[[i]],]
+  train.data <- nb.df[-fold[[i]],]
+  
+  tel.nb<-naiveBayes(Churn~.,data = train.data)
+  # Compute propensity
+  valid.pred.prob <- predict(tel.nb, newdata = valid.data, type = "raw")
+  train.pred.prob <- predict(tel.nb, newdata = train.data, type = "raw")
+  # Classification
+  nb.valid.pred.class <- predict(tel.nb,newdata = valid.data)
+  nb.train.pred.class <- predict(tel.nb,newdata = train.data)
+  
+  valid.sub.fold <- data.frame('prob' = valid.pred.prob, 'class' = nb.valid.pred.class, 'actual' = valid.data[, 15])
+  train.sub.fold <- data.frame('prob' = train.pred.prob, 'class' = nb.train.pred.class, 'actual' = train.data[, 15])
+  valid.result<- rbind(valid.result, valid.sub.fold)
+  train.result <- rbind(train.result, train.sub.fold)
+}
+
 tel.nb
 
-#compute the propensity
-pred.prob <- predict(tel.nb, newdata = valid.df, type = "raw")
-
 #Performance evaluating of traning set
-pred.class<-predict(tel.nb,newdata = train.df)
-confusionMatrix(pred.class,train.df$Churn)
+confusionMatrix(train.result$class,train.result$actual)
 #Performance evaluation of validation set
-pred.class<-predict(tel.nb,newdata = valid.df)
-confusionMatrix(pred.class,valid.df$Churn)
+confusionMatrix(valid.result$class,valid.result$actual)
 
-#Draw lift chart
-gain<-gains(ifelse(valid.df$Churn=="Yes",1,0),pred.prob[,1],groups=100)
-plot(c(0,gain$cume.pct.of.total*sum(valid.df$Churn=="Yes"))~c(0,gain$cume.obs),
-     xlab="# of cases",ylab="cumulative #of Churn detected",main="Lift Chart of tel",type="l")
-lines(c(0,sum(valid.df$Churn=="Yes"))~c(0,dim(valid.df)[1]),lty=2)
+#ROC curve
+a<-ifelse(train.result$class=='Yes',1,0) 
+b<-ifelse(train.result$actual=='Yes',1,0)
+nb.train.roc <- roc(predictor = a,response=b,levels = c(0,1),direction='<')
+c<-ifelse(valid.result$class =='Yes',1,0)
+d<- ifelse(valid.result$actual=='Yes',1,0)
+nb.valid.roc <- roc(predictor=c,response=d,levels = c(0,1),direction='<')
+plot.roc(nb.train.roc, col = 'blue', print.auc = TRUE)
+plot.roc(nb.valid.roc, add = TRUE, col = 'pink', print.auc = TRUE, print.auc.x = 0.6, print.auc.y = 0.4)
+
+#Lift chart on train set
+gain<-gains(ifelse(train.result$actual=="Yes",1,0),train.result$prob.Yes,groups=100)
+plot(c(0,gain$cume.pct.of.total*sum(train.result$actual=="Yes"))~c(0,gain$cume.obs),
+     xlab="# of cases",ylab="cumulative #of Churn detected",main="NB Train Lift Chart of tel",type="l")
+lines(c(0,sum(train.result$actual=="Yes"))~c(0,dim(train.result)[1]),lty=2)
+
+#Lift chart on valid set
+gain<-gains(ifelse(valid.result$actual=="Yes",1,0),valid.result$prob.Yes,groups=100)
+plot(c(0,gain$cume.pct.of.total*sum(valid.result$actual=="Yes"))~c(0,gain$cume.obs),
+     xlab="# of cases",ylab="cumulative #of Churn detected",main="NB Valid Lift Chart of tel",type="l")
+lines(c(0,sum(valid.result$actual=="Yes"))~c(0,dim(valid.result)[1]),lty=2)
 #good
 
 
@@ -587,33 +618,64 @@ telco.df<-telco.df%>%
 #Normalization data save to cvs, give other teammate to use it
 #write.csv(telco.df, "telco.csv", row.names=FALSE)
 
+#Model2 Logistic Regression
 #Partition the data use 10-fold cross
 set.seed(1)
 fold <- createFolds(telco.df$Churn,k=10)
 fold
 
-results<-c()
+valid.result <- data.frame()
+train.result <- data.frame()
 
 for(i in 1:10){
   valid.data <- telco.df[fold[[i]],]
   train.data <- telco.df[-fold[[i]],]
   
   logit.reg <- glm(Churn ~ ., data = train.data, family = "binomial")
+  # Compute propensity
+  valid.pred.prob <- predict(logit.reg, valid.data[,-19], type = "response")
+  train.pred.prob <- predict(logit.reg, train.data[,-19], type = "response")
+  # Classification
+  logit.valid.pred.class <- ifelse(valid.pred.prob >= 0.5,1,0)
+  logit.train.pred.class <- ifelse(train.pred.prob >= 0.5,1,0)
   
-  pred.prob <- predict(logit.reg, valid.data, type = "response")
-  
-  pred.class <- ifelse(pred.prob >= 0.5, 1, 0)
-  
-  accuracy<-mean(pred.class==valid.data$Churn)
-  
-  results<-c(results,accuracy)
+  valid.sub.fold <- data.frame('prob' = valid.pred.prob, 'class' = logit.valid.pred.class, 'actual' = valid.data[, 19])
+  train.sub.fold <- data.frame('prob' = train.pred.prob, 'class' = logit.train.pred.class, 'actual' = train.data[, 19])
+  valid.result<- rbind(valid.result, valid.sub.fold)
+  train.result <- rbind(train.result, train.sub.fold)
 }
 
-results
-mean(results)
+summary(logit.reg)
+
+#Performance evaluation on training set
+confusionMatrix(factor(train.result$class,levels=c(1,0)),
+                factor(train.result$actual,levels = c(1,0)))
+#Performance evaluation on valid set
+confusionMatrix(factor(valid.result$class,levels=c(1,0)),
+                factor(valid.result$actual,levels = c(1,0)))
+
+#ROC curve
+logit.train.roc <- roc(predictor = train.result$prob, response = train.result$actual, levels = c(0,1), direction='<')
+logit.valid.roc <- roc(predictor = valid.result$prob, response = valid.result$actual, levels = c(0,1), direction='<')
+plot.roc(logit.train.roc, col = 'blue', print.auc = TRUE)
+plot.roc(logit.valid.roc, add = TRUE, col = 'pink', print.auc = TRUE, print.auc.x = 0.6, print.auc.y = 0.4)
 
 
-#build model2 classification tree
+#Lift chart on train set
+gain<-gains(train.result$actual,train.result$prob,groups=length(train.result$prob))
+plot(c(0,gain$cume.pct.of.total*sum(train.result$actual))~c(0,gain$cume.obs),
+     xlab="#cases",ylab="Cumulative # of responses", main="glm Train Lift Chart of Telco Case",type="l")
+lines(c(0,sum(train.result$actual))~c(0,dim(train.result)[1]),lty=2)
+
+#Lift chart on valid set
+gain<-gains(valid.result$actual,valid.result$prob,groups=length(valid.result$prob))
+plot(c(0,gain$cume.pct.of.total*sum(valid.result$actual))~c(0,gain$cume.obs),
+     xlab="#cases",ylab="Cumulative # of responses", main="glm Valid Lift Chart of Telco Case",type="l")
+lines(c(0,sum(valid.result$actual))~c(0,dim(valid.result)[1]),lty=2)
+#good
+
+
+#build model3 classification tree
 #set Churn level
 telco.df[,19]<-factor(telco.df[,19],levels = c(1,0))
 levels(telco.df$Churn)
